@@ -9,7 +9,7 @@ from datetime import datetime
 # â”€â”€â”€ LOAD ENV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 load_dotenv()
 BOT_TOKEN = "8563448359:AAHTVliW8IzzcNTVCz1dGRCSqPcSLjFaYNM"
-GEMINI_API_KEY = "AIzaSyCZ46RkYgPPOWpYZz56EPktQBgvl0X9l-w"
+GEMINI_API_KEY ="AIzaSyAD3e68UcYh9bnTdGhzCCquhdK8yPAgmTI"
 OWNER_ID=8236525737
 BOT_USERNAME = "yourAkshabot"
 
@@ -166,3 +166,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
