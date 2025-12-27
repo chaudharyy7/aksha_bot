@@ -1,1 +1,1 @@
-web: python3 FlirtyBoy.py
+web: python3 FlirtyBot.py
