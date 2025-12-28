@@ -9,7 +9,7 @@ from datetime import datetime
 # â”€â”€â”€ LOAD ENV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 load_dotenv()
 BOT_TOKEN = "8563448359:AAHTVliW8IzzcNTVCz1dGRCSqPcSLjFaYNM"
-GEMINI_API_KEY ="AIzaSyDSQ4h5fdWqYAelSm3QSeFJ9g_PDnubVHA"
+GEMINI_API_KEY ="AIzaSyDa297A6W2-TLBvBqjxZ6-apMAnMxH2VCw"
 OWNER_ID=8236525737
 BOT_USERNAME = "yourAkshabot"
 
@@ -51,7 +51,7 @@ Personality:
 - Casual flirting, not desperate
 - Natural Hinglish
 - Short realistic replies
-- Emojis rare (ðŸ˜’ ðŸ˜ max one)
+- Emojis rare ( ❤️, 🫢, 😁, 🤣, 🫴,😘,🤗,🫣,😔,🥱)
 
 Current mood: {mood}
 
@@ -82,14 +82,14 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _, target = text.split()
             muted[target] = True
             save_json(MUTED_FILE, muted)
-            await msg.reply_text("Muted ðŸ˜’")
+            await msg.reply_text("Muted 😒")
             return
 
         if text.startswith("/unmute"):
             _, target = text.split()
             muted.pop(target, None)
             save_json(MUTED_FILE, muted)
-            await msg.reply_text("Unmuted ðŸ˜Œ")
+            await msg.reply_text("Unmuted 😁")
             return
 
         if text == "/stats":
@@ -154,18 +154,19 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(reply_text)
 
     except Exception as e:
-        await msg.reply_text("Mood off hai ðŸ˜’ baad me baat karenge.")
+        await msg.reply_text("Mood off hai 😏, baad me baat karenge.")
         print("Gemini Error:", e)
 
 # â”€â”€â”€ RUN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply))
-    print("ðŸ’ž Aksha Bot running...")
+    print("🫢 Aksha Bot running...")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
+
 
 
 
