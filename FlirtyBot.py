@@ -5,11 +5,12 @@ from telegram.ext import Application, MessageHandler, ContextTypes, filters
 from telegram.constants import ChatAction
 from google import genai
 from datetime import datetime
+import os
 
 # â”€â”€â”€ LOAD ENV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 load_dotenv()
 BOT_TOKEN = "8563448359:AAHTVliW8IzzcNTVCz1dGRCSqPcSLjFaYNM"
-GEMINI_API_KEY ="AIzaSyDEAcXLTwns47e0A15K66GGDvkEUGiSRiU"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OWNER_ID=8236525737
 BOT_USERNAME = "yourAkshabot"
 
@@ -166,6 +167,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
