@@ -10,7 +10,7 @@ import os
 # â”€â”€â”€ LOAD ENV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 load_dotenv()
 BOT_TOKEN = "8563448359:AAHTVliW8IzzcNTVCz1dGRCSqPcSLjFaYNM"
-GEMINI_API_KEY = os.getenv("GEMINI_KEY_API")
+GEMINI_API_KEY = "AIzaSyCKwJNL6naE1DnQEVc_aQVXER5_KZOpKoQ"
 OWNER_ID=8236525737
 BOT_USERNAME = "yourAkshabot"
 
@@ -167,6 +167,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
