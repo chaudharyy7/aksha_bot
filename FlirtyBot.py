@@ -27,17 +27,17 @@ BOT_USERNAME = "yourAkshabot"
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ================= PATHS =================
-DATA_DIR = "data"
-os.makedirs(DATA_DIR, exist_ok=True)
+# ================= FILES (ROOT DIRECTORY) =================
 
-USERS_FILE = f"{DATA_DIR}/users.json"
-GROUPS_FILE = f"{DATA_DIR}/groups.json"
-ADMINS_FILE = f"{DATA_DIR}/admins.json"
-BLOCKED_FILE = f"{DATA_DIR}/blocked.json"
-BANNED_WORDS_FILE = f"{DATA_DIR}/banned_words.json"
-ANALYTICS_FILE = f"{DATA_DIR}/analytics.json"
-SETTINGS_FILE = f"{DATA_DIR}/settings.json"
-SCHEDULE_FILE = f"{DATA_DIR}/schedule.json"
+MEMORY_FILE = "memory.json"        # user chat history
+MUTED_FILE = "muted.json"          # muted users
+GROUPS_FILE = "groups.json"        # groups list
+ADMINS_FILE = "admins.json"        # extra admins
+BLOCKED_FILE = "blocked.json"      # blocked users
+BANNED_WORDS_FILE = "banned_words.json"
+ANALYTICS_FILE = "analytics.json"  # broadcast analytics
+SETTINGS_FILE = "settings.json"    # bot settings
+SCHEDULE_FILE = "schedule.json"    # scheduled broadcasts
 
 LAST_MSG = {}
 
@@ -261,3 +261,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
