@@ -19,6 +19,7 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 # â”€â”€â”€ FILES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 MEMORY_FILE = "memory.json"
 MUTED_FILE = "muted.json"
+GROUPS_FILE = "groups.json"
 
 LAST_MSG = {}
 
@@ -32,7 +33,17 @@ def load_json(file):
 def save_json(file, data):
     with open(file, "w") as f:
         json.dump(data, f, indent=2)
+        
+def load_groups():
+    if not os.path.exists(GROUPS_FILE):
+        return {}
+    with open(GROUPS_FILE, "r") as f:
+        return json.load(f)
 
+def save_groups(data):
+    with open(GROUPS_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+        
 # â”€â”€â”€ MOOD SYSTEM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def get_mood():
     hour = datetime.now().hour
@@ -98,6 +109,62 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Users: {len(memory)}\nMuted: {len(muted)}"
             )
             return
+         # ================= BROADCAST =================
+    if msg.from_user.id == OWNER_ID and text.startswith("/broadcast"):
+        broadcast_text = text.replace("/broadcast", "").strip()
+        if not broadcast_text:
+            await msg.reply_text("Message bhi likh na 😒")
+            return
+         
+        memory = load_json(MEMORY_FILE)
+        groups = load_groups()
+
+        sent = 0
+        failed = 0
+        await msg.reply_text("📣 Broadcast starting...")
+
+    # Send to user
+        for uid in memory.keys():
+            try:
+                await context.bot.send_message(
+                    chat_id=int(uid),
+                    text=broadcast_text
+                )
+                sent += 1
+                await asyncio.sleep(0.25)  # rate limit
+            except Exception:
+                failed += 1
+
+    # Send to groups
+    for gid in groups.keys():
+        try:
+            await context.bot.send_message(
+                chat_id=int(gid),
+                text=broadcast_text
+            )
+            sent += 1
+            await asyncio.sleep(0.35)
+        except Exception:
+            failed += 1
+            
+        await msg.reply_text(
+            f"✅ Broadcast Done\n\n📤 Sent: {sent}\n❌ Failed: {failed}"
+        )
+        return
+
+    # Save group info
+    if chat.type in ["group", "supergroup"]:
+        groups = load_groups()
+        gid = str(chat.id)
+
+    if gid not in groups:
+        groups[gid] = {
+            "title": chat.title,
+            "added_at": time.time()
+        }
+        save_groups(groups)
+
+    
 
     # Muted user
     if uid in muted:
@@ -167,6 +234,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
