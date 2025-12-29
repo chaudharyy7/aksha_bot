@@ -298,14 +298,8 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(MessageHandler(filters.ALL, reply))
 
-    app.job_queue.run_repeating(
-        lambda ctx: asyncio.create_task(scheduler(app)),
-        interval=60,
-        first=60
-    )
+    # ✅ start scheduler safely (NO JobQueue)
+    app.post_init = on_startup
 
     print("🔥 Aksha Bot running...")
     app.run_polling()
-
-if __name__ == "__main__":
-    main()
