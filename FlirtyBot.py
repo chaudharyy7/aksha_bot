@@ -1,236 +1,276 @@
-import os, json, time, random, asyncio
+import os
+import time
+import random
+import asyncio
+from datetime import datetime
 from dotenv import load_dotenv
+
 from telegram import Update
 from telegram.ext import Application, MessageHandler, ContextTypes, filters
 from telegram.constants import ChatAction
-from google import genai
-from datetime import datetime
 
-# ================= LOAD ENV =================
+import google.generativeai as genai
+from pymongo import MongoClient
+
+# ==================================================
+# LOAD ENV
+# ==================================================
 load_dotenv()
-BOT_TOKEN = "8563448359:AAHTVliW8IzzcNTVCz1dGRCSqPcSLjFaYNM"
+
+BOT_TOKEN = "8563448359:AAEO9VHBxLQZkz48QpPlOZedWR5kzE183kI"
 GEMINI_API_KEY = "AIzaSyATKQi_Yjj4H2ZXx4InRggWjWvOodvw3yk"
-OWNER_ID=8236525737
+OWNER_ID = 8236525737
 BOT_USERNAME = "yourAkshabot"
+MONGO_URI = "mongodb+srv://mefirebase1115_db_user:f76qFi3OqJQsagU2@cluster0.wsppssu.mongodb.net/?appName=Cluster0"
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+# ==================================================
+# MONGODB
+# ==================================================
+mongo = MongoClient(MONGO_URI)
+db = mongo["aksha_bot"]
 
-# ================= FILES =================
-MEMORY_FILE = "memory.json"
-MUTED_FILE = "muted.json"
-GROUPS_FILE = "groups.json"
-ANALYTICS_FILE = "analytics.json"
+users_col = db["users"]        # user memory + premium
+groups_col = db["groups"]      # groups
+muted_col = db["muted"]        # muted users
+analytics_col = db["analytics"]
 
+# ==================================================
+# GEMINI
+# ==================================================
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel("gemini-1.5-flash")
+
+# ==================================================
+# RUNTIME MEMORY
+# ==================================================
 LAST_MSG = {}
 
-# ================= HELPERS =================
-def load_json(file, default):
-    if not os.path.exists(file):
-        return default
-    with open(file, "r") as f:
-        return json.load(f)
-
-def save_json(file, data):
-    with open(file, "w") as f:
-        json.dump(data, f, indent=2)
-
-# ================= MOOD =================
+# ==================================================
+# MOOD ENGINE
+# ==================================================
 def get_mood():
-    hour = datetime.now().hour
-    if hour >= 23 or hour < 6:
+    h = datetime.now().hour
+    if h >= 23 or h < 6:
         return random.choice(["sleepy", "low-energy"])
     return random.choice(["sweet", "rude", "playful", "neutral"])
 
-# ================= PROMPT =================
-def build_prompt(user, text, memory, mood):
-    convo = "\n".join(memory[-5:])
-    return f"""
-You are a girl named Aksha. Act like a real human.
+# ==================================================
+# PROMPT
+# ==================================================
+def build_prompt(name, text, history, mood):
+    convo = "\n".join(history[-5:])
+    return (
+        "You are Aksha, a modern Indian girl.\n"
+        "Short Hinglish replies. Confident. Slightly rude. Light flirting.\n"
+        f"Mood: {mood}\n\n"
+        f"{convo}\n"
+        f"User ({name}): {text}\n"
+        "Aksha:"
+    )
 
-Traits:
-- Indian modern girl
-- Slightly rude, confident
-- Casual flirting with emoji
-- Natural Hinglish
-- Short replies
-
-Mood: {mood}
-
-Conversation:
-{convo}
-
-User ({user}): {text}
-Aksha:
-"""
-
-# ================= BROADCAST CORE =================
+# ==================================================
+# BROADCAST
+# ==================================================
 async def broadcast_text(context, text):
-    users = load_json(MEMORY_FILE, {})
-    groups = load_json(GROUPS_FILE, {})
-
     sent, failed = 0, 0
 
-    for uid in users:
+    for u in users_col.find({}, {"_id": 1}):
         try:
-            await context.bot.send_message(int(uid), text)
+            await context.bot.send_message(int(u["_id"]), text)
             sent += 1
             await asyncio.sleep(0.3)
         except:
             failed += 1
 
-    for gid in groups:
+    for g in groups_col.find({}, {"_id": 1}):
         try:
-            await context.bot.send_message(int(gid), text)
+            await context.bot.send_message(int(g["_id"]), text)
             sent += 1
             await asyncio.sleep(0.4)
         except:
             failed += 1
 
-    analytics = load_json(ANALYTICS_FILE, [])
-    analytics.append({
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "type": "text",
+    analytics_col.insert_one({
+        "time": datetime.now(),
         "sent": sent,
-        "failed": failed,
-        "users": len(users),
-        "groups": len(groups)
+        "failed": failed
     })
-    save_json(ANALYTICS_FILE, analytics)
 
     return sent, failed
 
-# ================= MAIN HANDLER =================
+# ==================================================
+# MAIN HANDLER
+# ==================================================
 async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg:
         return
 
     chat = update.effective_chat
-    uid = str(msg.from_user.id)
+    user = msg.from_user
+    uid = str(user.id)
     text = msg.text.strip() if msg.text else ""
 
-    memory = load_json(MEMORY_FILE, {})
-    muted = load_json(MUTED_FILE, {})
-    groups = load_json(GROUPS_FILE, {})
-
-    # ================= GROUP SAVE =================
+    # ---------- SAVE GROUP ----------
     if chat.type in ["group", "supergroup"]:
-        if str(chat.id) not in groups:
-            groups[str(chat.id)] = {
-                "title": chat.title,
-                "added_at": time.time()
-            }
-            save_json(GROUPS_FILE, groups)
+        groups_col.update_one(
+            {"_id": str(chat.id)},
+            {"$set": {"title": chat.title}},
+            upsert=True
+        )
 
-    # ================= OWNER COMMANDS =================
-    if msg.from_user.id == OWNER_ID:
+    # ---------- MUTED ----------
+    if muted_col.find_one({"_id": uid}):
+        return
 
-        if text.startswith("/broadcast_text"):
-            msg_text = text.replace("/broadcast_text", "").strip()
-            if not msg_text:
-                await msg.reply_text("Message likh 😒")
+    # ---------- LOAD USER ----------
+    user_doc = users_col.find_one({"_id": uid}) or {
+        "_id": uid,
+        "name": user.first_name,
+        "history": [],
+        "premium": False
+    }
+
+    is_premium = user_doc.get("premium", False)
+
+    # ---------- ANTI SPAM ----------
+    if not is_premium:
+        now = time.time()
+        if uid in LAST_MSG and now - LAST_MSG[uid] < 3:
+            return
+        LAST_MSG[uid] = now
+
+    # ---------- GROUP SMART MODE ----------
+    if chat.type in ["group", "supergroup"]:
+        if not (msg.reply_to_message or f"@{BOT_USERNAME}" in text.lower()):
+            return
+
+    # ==================================================
+    # OWNER COMMANDS
+    # ==================================================
+    if user.id == OWNER_ID:
+
+        # ---- MUTE ----
+        if text.startswith("/mute"):
+            parts = text.split()
+            if len(parts) != 2:
+                await msg.reply_text("Usage: /mute <user_id>")
+                return
+            muted_col.update_one(
+                {"_id": parts[1]},
+                {"$set": {"muted_at": datetime.now()}},
+                upsert=True
+            )
+            await msg.reply_text("🔇 User muted")
+            return
+
+        # ---- UNMUTE ----
+        if text.startswith("/unmute"):
+            parts = text.split()
+            if len(parts) != 2:
+                await msg.reply_text("Usage: /unmute <user_id>")
+                return
+            muted_col.delete_one({"_id": parts[1]})
+            await msg.reply_text("🔊 User unmuted")
+            return
+
+        # ---- SEND USER ----
+        if text.startswith("/send_user"):
+            parts = text.split(maxsplit=2)
+
+            if msg.reply_to_message and len(parts) == 2:
+                await context.bot.send_message(int(parts[1]), msg.reply_to_message.text)
+                await msg.reply_text("✅ Message sent")
                 return
 
+            if len(parts) < 3:
+                await msg.reply_text("Usage: /send_user <id> <message>")
+                return
+
+            await context.bot.send_message(int(parts[1]), parts[2])
+            await msg.reply_text("✅ Message sent")
+            return
+
+        # ---- PREMIUM ADD ----
+        if text.startswith("/premium_add"):
+            parts = text.split()
+            if len(parts) != 2:
+                await msg.reply_text("Usage: /premium_add <user_id>")
+                return
+            users_col.update_one(
+                {"_id": parts[1]},
+                {"$set": {"premium": True}},
+                upsert=True
+            )
+            await msg.reply_text("💎 Premium activated")
+            return
+
+        # ---- PREMIUM REMOVE ----
+        if text.startswith("/premium_remove"):
+            parts = text.split()
+            if len(parts) != 2:
+                await msg.reply_text("Usage: /premium_remove <user_id>")
+                return
+            users_col.update_one(
+                {"_id": parts[1]},
+                {"$set": {"premium": False}}
+            )
+            await msg.reply_text("❌ Premium removed")
+            return
+
+        # ---- BROADCAST ----
+        if text.startswith("/broadcast_text"):
+            message = text.replace("/broadcast_text", "").strip()
+            if not message:
+                await msg.reply_text("Message likh 😒")
+                return
             await msg.reply_text("📡 Broadcasting...")
-            sent, failed = await broadcast_text(context, msg_text)
+            sent, failed = await broadcast_text(context, message)
             await msg.reply_text(f"✅ Done\nSent: {sent}\nFailed: {failed}")
             return
 
-        if text == "/broadcast_stats":
-            data = load_json(ANALYTICS_FILE, [])
-            if not data:
-                await msg.reply_text("No data yet")
-                return
-            last = data[-1]
-            await msg.reply_text(
-                f"📊 Last Broadcast\n"
-                f"🕒 {last['time']}\n"
-                f"📤 Sent: {last['sent']}\n"
-                f"❌ Failed: {last['failed']}\n"
-                f"👤 Users: {last['users']}\n"
-                f"👥 Groups: {last['groups']}"
-            )
-            return
+    # ==================================================
+    # USER MEMORY
+    # ==================================================
+    user_doc["history"].append(f"User: {text}")
+    user_doc["history"] = user_doc["history"][-5:]
 
-        if text == "/broadcast_photo" and msg.reply_to_message:
-            photo = msg.reply_to_message.photo
-            if not photo:
-                return
-            file_id = photo[-1].file_id
-            caption = msg.reply_to_message.caption or ""
-            users = load_json(MEMORY_FILE, {})
-            groups = load_json(GROUPS_FILE, {})
+    users_col.update_one(
+        {"_id": uid},
+        {"$set": user_doc},
+        upsert=True
+    )
 
-            for uid in users:
-                try:
-                    await context.bot.send_photo(int(uid), file_id, caption=caption)
-                    await asyncio.sleep(0.3)
-                except:
-                    pass
-
-            for gid in groups:
-                try:
-                    await context.bot.send_photo(int(gid), file_id, caption=caption)
-                    await asyncio.sleep(0.4)
-                except:
-                    pass
-
-            await msg.reply_text("🖼️ Image broadcast done")
-            return
-
-    # ================= MUTED =================
-    if uid in muted:
-        return
-
-    # ================= ANTI SPAM =================
-    now = time.time()
-    if uid in LAST_MSG and now - LAST_MSG[uid] < 3:
-        return
-    LAST_MSG[uid] = now
-
-    # ================= GROUP SMART MODE =================
-    if chat.type in ["group", "supergroup"]:
-        if not (
-            msg.reply_to_message
-            or f"@{BOT_USERNAME.lower()}" in text.lower()
-        ):
-            return
-
-    # ================= MEMORY =================
-    if uid not in memory:
-        memory[uid] = {"name": msg.from_user.first_name, "history": []}
-
-    memory[uid]["history"].append(f"User: {text}")
-    memory[uid]["history"] = memory[uid]["history"][-5:]
-    save_json(MEMORY_FILE, memory)
-
-    # ================= AI RESPONSE =================
+    # ==================================================
+    # AI RESPONSE
+    # ==================================================
     mood = get_mood()
-    prompt = build_prompt(memory[uid]["name"], text, memory[uid]["history"], mood)
+    prompt = build_prompt(user_doc["name"], text, user_doc["history"], mood)
 
     await context.bot.send_chat_action(chat.id, ChatAction.TYPING)
-    await asyncio.sleep(random.uniform(1.5, 3))
+
+    if not is_premium:
+        await asyncio.sleep(random.uniform(1.5, 3))
 
     try:
-        res = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[{"role": "user", "parts": [{"text": prompt}]}]
-        )
+        res = model.generate_content(prompt)
         reply_text = res.text[:300]
-        memory[uid]["history"].append(f"Aksha: {reply_text}")
-        save_json(MEMORY_FILE, memory)
+
+        user_doc["history"].append(f"Aksha: {reply_text}")
+        users_col.update_one({"_id": uid}, {"$set": user_doc})
+
         await msg.reply_text(reply_text)
     except:
         await msg.reply_text("Mood off hai 😏, kal baat krungi")
 
-# ================= RUN =================
+# ==================================================
+# RUN BOT (POLLING)
+# ==================================================
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(MessageHandler(filters.ALL, reply))
-    print("🔥 Aksha Bot Running...")
+    print("🔥 Aksha Bot running with MongoDB + Premium")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-
-
